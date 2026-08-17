@@ -1,0 +1,1092 @@
+--========================================================
+-- SLEEPY X ASVARA + AUTO PURCHASE 合体版
+--========================================================
+
+-- 0. NetworkPause削除（最優先）
+pcall(function()
+    game:GetService("CoreGui").RobloxGui["CoreScripts/NetworkPause"]:Destroy()
+    print("✅ NetworkPause を削除しました")
+end)
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+--========================================================
+-- SETTINGS
+--========================================================
+local WAYPOINT_DELAY = 0.8
+local ALL_MAP_WAIT = 600
+
+--========================================================
+-- MAP COORDINATES
+--========================================================
+local MAPS = {
+    Dojo = {
+        Vector3.new(6503,49,352),
+        Vector3.new(6504,41,403),
+        Vector3.new(6531,41,423),
+    },
+    Royal = {
+        Vector3.new(2259,-99,-2176),
+        Vector3.new(2201,-90,-2187),
+        Vector3.new(2328,-99,-2178),
+    },
+    Exints = {
+        Vector3.new(2500,1042,-4008),
+        Vector3.new(2500,1042,-4079),
+        Vector3.new(2569,1042,-4096),
+        Vector3.new(2606,1044,-4096),
+    },
+    ["Sahur Area"] = {
+        Vector3.new(5940.38,128.68,-2302.69),
+        Vector3.new(5980.74,111.18,-2235.89),
+        Vector3.new(5948.77,96.68,-2165.39),
+        Vector3.new(5971.08,96.68,-2067.91),
+    },
+    ["Sacred Garden"] = {
+        Vector3.new(-2672.25,118.51,-1978.53),
+        Vector3.new(-2486.25,97.74,-1976.88),
+        Vector3.new(-2586.92,97.61,-1978.23),
+    },
+    Traleldon = {
+        Vector3.new(-4509.33,531.34,855.13),
+        Vector3.new(-4420.13,531.34,767.67),
+        Vector3.new(-4419.49,531.34,945.75),
+        Vector3.new(-4329.02,531.34,855.16),
+    },
+    Sixsvn = {
+        Vector3.new(-1529.89,-128.00,824.56),
+        Vector3.new(-1534.56,-128.84,777.60),
+        Vector3.new(-1459.55,-142.85,772.14),
+    },
+    ["Lava (Bombardiro)"] = {
+        Vector3.new(-813.38,-142.44,2344.70),
+        Vector3.new(-736.23,-152.43,2342.40),
+        Vector3.new(-677.83,-149.63,2406.28),
+    },
+    Nyanyino = {
+        Vector3.new(-464.23,-175.34,9901.59),
+        Vector3.new(-519.38,-177.90,9902.23),
+        Vector3.new(-627.12,-175.74,9900.95),
+    },
+    Jungle = {
+        Vector3.new(-74.80,-25.46,-1811.65),
+        Vector3.new(-129.91,-25.46,-1811.16),
+        Vector3.new(-189.11,-25.46,-1802.38),
+    },
+    Beach = {
+        Vector3.new(3685.85,-223.58,4629.17),
+        Vector3.new(3532.81,-221.72,4633.16),
+    },
+    ["Wastes"] = {
+        Vector3.new(203.5703582763672,-20.539213180541992,-576.0277099609375),
+        Vector3.new(305.5035705566406,-20.126312255859375,-574.5908813476562),
+        Vector3.new(426.7333679199219,-18.091371536254883,-579.552734375),
+    },
+}
+local MAP_NAMES = {
+    "Dojo",
+    "Royal",
+    "Exints",
+    "Sahur Area",
+    "Sacred Garden",
+    "Traleldon",
+    "Sixsvn",
+    "Lava (Bombardiro)",
+    "Nyanyino",
+    "Jungle",
+    "Beach",
+    "Wastes",
+}
+
+--========================================================
+-- CLEAN OLD
+--========================================================
+local old = playerGui:FindFirstChild("SLEEPY_X_ASVARA")
+if old then old:Destroy() end
+
+--========================================================
+-- COLORS
+--========================================================
+local BG = Color3.fromRGB(7,8,14)
+local CARD = Color3.fromRGB(16,18,29)
+local CARD2 = Color3.fromRGB(23,26,40)
+local BUTTON = Color3.fromRGB(30,33,48)
+local WHITE = Color3.fromRGB(245,247,255)
+local GRAY = Color3.fromRGB(145,151,175)
+local PURPLE = Color3.fromRGB(135,90,255)
+local BLUE = Color3.fromRGB(70,120,255)
+local CYAN = Color3.fromRGB(55,210,255)
+local GREEN = Color3.fromRGB(50,210,125)
+local RED = Color3.fromRGB(235,70,90)
+local YELLOW = Color3.fromRGB(255,200,50)
+
+--========================================================
+-- UTIL
+--========================================================
+local function corner(obj,radius)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0,radius)
+    c.Parent = obj
+end
+local function stroke(obj,color,transparency,thickness)
+    local s = Instance.new("UIStroke")
+    s.Color = color
+    s.Transparency = transparency
+    s.Thickness = thickness
+    s.Parent = obj
+end
+local function gradient(obj,c1,c2)
+    local g = Instance.new("UIGradient")
+    g.Color = ColorSequence.new(c1,c2)
+    g.Parent = obj
+end
+local function label(parent,text,size,pos)
+    local l = Instance.new("TextLabel")
+    l.Size = size
+    l.Position = pos
+    l.BackgroundTransparency = 1
+    l.Text = text
+    l.TextColor3 = WHITE
+    l.Font = Enum.Font.GothamBold
+    l.TextSize = 14
+    l.Parent = parent
+    return l
+end
+local function button(parent,text,size,pos)
+    local b = Instance.new("TextButton")
+    b.Size = size
+    b.Position = pos
+    b.BackgroundColor3 = BUTTON
+    b.BorderSizePixel = 0
+    b.Text = text
+    b.TextColor3 = WHITE
+    b.TextSize = 10
+    b.Font = Enum.Font.GothamBold
+    b.AutoButtonColor = false
+    b.Parent = parent
+    corner(b,12)
+    stroke(b,BLUE,.75,1)
+    return b
+end
+
+--========================================================
+-- GUI SLEEPY
+--========================================================
+local gui = Instance.new("ScreenGui")
+gui.Name = "SLEEPY_X_ASVARA"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.DisplayOrder = 999
+gui.Parent = playerGui
+
+local main = Instance.new("Frame")
+main.Size = UDim2.fromOffset(390,590)
+main.Position = UDim2.fromScale(.5,.5)
+main.AnchorPoint = Vector2.new(.5,.5)
+main.BackgroundColor3 = BG
+main.BorderSizePixel = 0
+main.Visible = true
+main.Parent = gui
+corner(main,24)
+stroke(main,PURPLE,.3,1.5)
+
+local header = Instance.new("Frame")
+header.Size = UDim2.new(1,0,0,82)
+header.BackgroundColor3 = CARD
+header.BorderSizePixel = 0
+header.Active = true
+header.Parent = main
+corner(header,24)
+
+local headerGlow = Instance.new("Frame")
+headerGlow.Size = UDim2.new(1,-36,0,3)
+headerGlow.Position = UDim2.fromOffset(18,0)
+headerGlow.BackgroundColor3 = PURPLE
+headerGlow.BorderSizePixel = 0
+headerGlow.Parent = header
+corner(headerGlow,8)
+gradient(headerGlow,PURPLE,CYAN)
+
+local title = label(
+    header,
+    "SLEEPY X ASVARA",
+    UDim2.new(1,-110,0,28),
+    UDim2.fromOffset(25,17)
+)
+title.TextSize = 17
+title.TextXAlignment = Enum.TextXAlignment.Left
+
+local subtitle = label(
+    header,
+    "BRAINROT CARD BATTLE",
+    UDim2.new(1,-110,0,18),
+    UDim2.fromOffset(25,44)
+)
+subtitle.TextSize = 8
+subtitle.TextColor3 = CYAN
+subtitle.TextXAlignment = Enum.TextXAlignment.Left
+
+local minimize = button(
+    header,
+    "−",
+    UDim2.fromOffset(38,38),
+    UDim2.new(1,-56,0,22)
+)
+minimize.TextSize = 21
+
+--========================================================
+-- DRAG
+--========================================================
+local dragging = false
+local dragStart
+local startPos
+
+header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = main.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if not dragging then return end
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        local delta = input.Position - dragStart
+        main.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+--========================================================
+-- CONTENT SLEEPY
+--========================================================
+local content = Instance.new("Frame")
+content.Size = UDim2.new(1,-40,1,-102)
+content.Position = UDim2.fromOffset(20,92)
+content.BackgroundTransparency = 1
+content.Parent = main
+
+local mapTitle = label(
+    content,
+    "SELECT MAPS (TOGGLE)",
+    UDim2.new(1,0,0,20),
+    UDim2.fromOffset(0,0)
+)
+mapTitle.TextSize = 9
+mapTitle.TextColor3 = GRAY
+mapTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+local selectedInfo = label(
+    content,
+    "SELECTED: NONE",
+    UDim2.new(1,0,0,20),
+    UDim2.fromOffset(0,20)
+)
+selectedInfo.TextSize = 8
+selectedInfo.TextColor3 = CYAN
+selectedInfo.TextXAlignment = Enum.TextXAlignment.Left
+
+local mapScroll = Instance.new("ScrollingFrame")
+mapScroll.Size = UDim2.new(1,0,0,120)
+mapScroll.Position = UDim2.fromOffset(0,45)
+mapScroll.BackgroundColor3 = CARD2
+mapScroll.BackgroundTransparency = 0.2
+mapScroll.BorderSizePixel = 0
+mapScroll.Parent = content
+corner(mapScroll,10)
+stroke(mapScroll,PURPLE,.3,1)
+
+local mapLayout = Instance.new("UIListLayout")
+mapLayout.FillDirection = Enum.FillDirection.Vertical
+mapLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+mapLayout.Padding = UDim.new(0,4)
+mapLayout.SortOrder = Enum.SortOrder.LayoutOrder
+mapLayout.Parent = mapScroll
+
+local selectedMaps = {}
+
+for _, name in ipairs(MAP_NAMES) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.9,0,0,28)
+    btn.BackgroundColor3 = BUTTON
+    btn.BorderSizePixel = 0
+    btn.Text = name
+    btn.TextColor3 = WHITE
+    btn.TextSize = 12
+    btn.Font = Enum.Font.GothamBold
+    btn.AutoButtonColor = false
+    btn.Parent = mapScroll
+    corner(btn,8)
+    stroke(btn,BLUE,.5,1)
+    
+    btn.MouseButton1Click:Connect(function()
+        local isSelected = false
+        for i, v in ipairs(selectedMaps) do
+            if v == name then
+                table.remove(selectedMaps, i)
+                isSelected = true
+                break
+            end
+        end
+        if not isSelected then
+            table.insert(selectedMaps, name)
+        end
+        if not isSelected then
+            btn.BackgroundColor3 = GREEN
+            stroke(btn,GREEN,0,1.5)
+        else
+            btn.BackgroundColor3 = BUTTON
+            stroke(btn,BLUE,.5,1)
+        end
+        if #selectedMaps == 0 then
+            selectedInfo.Text = "SELECTED: NONE"
+            selectedInfo.TextColor3 = GRAY
+        else
+            selectedInfo.Text = "SELECTED: " .. table.concat(selectedMaps, ", ")
+            selectedInfo.TextColor3 = CYAN
+        end
+    end)
+end
+
+--========================================================
+-- FEATURE BUTTONS SLEEPY
+--========================================================
+local farm = button(
+    content,
+    "AUTO FARM • OFF",
+    UDim2.new(1,0,0,43),
+    UDim2.fromOffset(0,175)
+)
+
+local allFarm = button(
+    content,
+    "AUTO FARM ALL MAP • OFF",
+    UDim2.new(1,0,0,43),
+    UDim2.fromOffset(0,225)
+)
+
+local interact = button(
+    content,
+    "AUTO INTERACT • OFF",
+    UDim2.new(1,0,0,43),
+    UDim2.fromOffset(0,275)
+)
+
+--========================================================
+-- STATUS SLEEPY
+--========================================================
+local statusBox = Instance.new("Frame")
+statusBox.Size = UDim2.new(1,0,0,65)
+statusBox.Position = UDim2.fromOffset(0,325)
+statusBox.BackgroundColor3 = CARD
+statusBox.BorderSizePixel = 0
+statusBox.Parent = content
+corner(statusBox,14)
+stroke(statusBox,PURPLE,.65,1)
+
+local statusDot = Instance.new("Frame")
+statusDot.Size = UDim2.fromOffset(8,8)
+statusDot.Position = UDim2.fromOffset(13,15)
+statusDot.BackgroundColor3 = GREEN
+statusDot.BorderSizePixel = 0
+statusDot.Parent = statusBox
+corner(statusDot,10)
+
+local statusTitle = label(
+    statusBox,
+    "LIVE STATUS",
+    UDim2.new(1,-35,0,18),
+    UDim2.fromOffset(28,7)
+)
+statusTitle.TextSize = 8
+statusTitle.TextColor3 = GRAY
+statusTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+local status = label(
+    statusBox,
+    "READY",
+    UDim2.new(1,-24,0,25),
+    UDim2.fromOffset(12,30)
+)
+status.TextSize = 10
+status.TextXAlignment = Enum.TextXAlignment.Left
+
+--========================================================
+-- FARM VARIABLES
+--========================================================
+local farming = false
+local allFarming = false
+local selectedLoops = nil
+local currentLoop = 0
+
+--========================================================
+-- TELEPORT
+--========================================================
+local function teleportTo(position)
+    local character = player.Character
+    if not character then return end
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if root then
+        root.CFrame = CFrame.new(position)
+    end
+end
+
+--========================================================
+-- STOP FARM
+--========================================================
+local function stopFarm(message)
+    farming = false
+    allFarming = false
+    selectedLoops = nil
+    currentLoop = 0
+    farm.Text = "AUTO FARM • OFF"
+    farm.BackgroundColor3 = BUTTON
+    allFarm.Text = "AUTO FARM ALL MAP • OFF"
+    allFarm.BackgroundColor3 = BUTTON
+    status.Text = message or "READY"
+    statusDot.BackgroundColor3 = GREEN
+end
+
+--========================================================
+-- FARM SELECTOR
+--========================================================
+local farmPanel = Instance.new("Frame")
+farmPanel.Size = UDim2.fromOffset(350,315)
+farmPanel.Position = UDim2.fromScale(.5,.5)
+farmPanel.AnchorPoint = Vector2.new(.5,.5)
+farmPanel.BackgroundColor3 = CARD
+farmPanel.BorderSizePixel = 0
+farmPanel.Visible = false
+farmPanel.ZIndex = 100
+farmPanel.Parent = gui
+corner(farmPanel,22)
+stroke(farmPanel,PURPLE,.2,1.5)
+
+local panelTitle = label(
+    farmPanel,
+    "HOW MUCH TIME YOU FARM?",
+    UDim2.new(1,-30,0,35),
+    UDim2.fromOffset(15,20)
+)
+panelTitle.TextSize = 15
+panelTitle.TextXAlignment = Enum.TextXAlignment.Center
+panelTitle.ZIndex = 101
+
+local panelSub = label(
+    farmPanel,
+    "SELECT LOOP",
+    UDim2.new(1,-30,0,22),
+    UDim2.fromOffset(15,53)
+)
+panelSub.TextSize = 7
+panelSub.TextColor3 = GRAY
+panelSub.TextXAlignment = Enum.TextXAlignment.Center
+panelSub.ZIndex = 101
+
+local choices = {
+    {"1x",1},
+    {"5x",5},
+    {"10x",10},
+    {"25x",25},
+    {"50x",50},
+    {"∞ UNLIMITED",math.huge},
+}
+
+for i,data in ipairs(choices) do
+    local col = (i-1)%3
+    local row = math.floor((i-1)/3)
+    local b = button(
+        farmPanel,
+        data[1],
+        UDim2.fromOffset(100,55),
+        UDim2.fromOffset(15+col*115,88+row*65)
+    )
+    b.ZIndex = 101
+    b.Activated:Connect(function()
+        selectedLoops = data[2]
+        currentLoop = 0
+        farming = true
+        allFarming = false
+        farmPanel.Visible = false
+        farm.Text = "AUTO FARM • ON"
+        farm.BackgroundColor3 = GREEN
+        allFarm.BackgroundColor3 = BUTTON
+        if selectedLoops == math.huge then
+            status.Text = "FARMING • ∞ LOOP"
+        else
+            status.Text = "FARMING • 0/"..selectedLoops
+        end
+    end)
+end
+
+--========================================================
+-- NORMAL AUTO FARM
+--========================================================
+farm.Activated:Connect(function()
+    if farming or allFarming then
+        stopFarm("READY")
+        return
+    end
+    if #selectedMaps == 0 then
+        status.Text = "⚠️ マップが選択されていません"
+        return
+    end
+    farmPanel.Visible = true
+end)
+
+task.spawn(function()
+    while gui.Parent do
+        if farming and selectedLoops then
+            local totalLoops = selectedLoops
+            local loopCount = 0
+            while farming and (totalLoops == math.huge or loopCount < totalLoops) do
+                loopCount = loopCount + 1
+                for _, mapName in ipairs(selectedMaps) do
+                    if not farming then break end
+                    local points = MAPS[mapName]
+                    if not points or #points == 0 then
+                        status.Text = "⚠️ " .. mapName .. " の座標がありません"
+                        break
+                    end
+                    for i, position in ipairs(points) do
+                        if not farming then break end
+                        status.Text = "LOOP "..loopCount.."/"..(totalLoops == math.huge and "∞" or tostring(totalLoops)).." • "..mapName.." "..i.."/"..#points
+                        teleportTo(position)
+                        task.wait(WAYPOINT_DELAY)
+                    end
+                end
+            end
+            if farming then
+                stopFarm("FARM COMPLETE ✓")
+                task.wait(1)
+                status.Text = "READY"
+            end
+        else
+            task.wait(.15)
+        end
+    end
+end)
+
+--========================================================
+-- AUTO FARM ALL MAP
+--========================================================
+local function farmAllMaps()
+    allFarming = true
+    farming = false
+    selectedLoops = nil
+    allFarm.Text = "AUTO FARM ALL MAP • ON"
+    allFarm.BackgroundColor3 = GREEN
+    farm.BackgroundColor3 = BUTTON
+
+    for mapIndex,mapName in ipairs(MAP_NAMES) do
+        if not allFarming then break end
+        local points = MAPS[mapName]
+        if points then
+            status.Text = "ALL MAP • "..mapIndex.."/"..#MAP_NAMES.." • "..mapName
+            for waypoint,position in ipairs(points) do
+                if not allFarming then break end
+                status.Text = mapName.." • "..waypoint.."/"..#points
+                teleportTo(position)
+                task.wait(WAYPOINT_DELAY)
+            end
+        end
+    end
+
+    if allFarming then
+        statusDot.BackgroundColor3 = CYAN
+        status.Text = "ALL MAP COMPLETE ✓ • WAIT 10 MINUTES"
+        task.wait(ALL_MAP_WAIT)
+    end
+    if allFarming then
+        stopFarm("ALL MAP READY")
+    end
+end
+
+allFarm.Activated:Connect(function()
+    if allFarming or farming then
+        stopFarm("ALL MAP STOPPED")
+        return
+    end
+    task.spawn(farmAllMaps)
+end)
+
+--========================================================
+-- AUTO INTERACT
+--========================================================
+local autoInteract = false
+
+interact.Activated:Connect(function()
+    autoInteract = not autoInteract
+    if autoInteract then
+        interact.Text = "AUTO INTERACT • ON"
+        interact.BackgroundColor3 = GREEN
+        status.Text = "AUTO INTERACT • ACTIVE"
+        statusDot.BackgroundColor3 = GREEN
+    else
+        interact.Text = "AUTO INTERACT • OFF"
+        interact.BackgroundColor3 = BUTTON
+        status.Text = "READY"
+    end
+end)
+
+local promptConnection
+promptConnection = ProximityPromptService.PromptShown:Connect(function(prompt)
+    if not autoInteract then return end
+    if prompt and prompt:IsA("ProximityPrompt") then
+        pcall(function()
+            if typeof(fireproximityprompt) == "function" then
+                fireproximityprompt(prompt)
+            end
+        end)
+    end
+end)
+
+task.spawn(function()
+    while gui.Parent do
+        if autoInteract then
+            local character = player.Character
+            if character then
+                local root = character:FindFirstChild("HumanoidRootPart")
+                if root then
+                    for _,obj in ipairs(workspace:GetDescendants()) do
+                        if obj:IsA("ProximityPrompt") then
+                            local holder = obj.Parent
+                            if holder then
+                                local part
+                                if holder:IsA("BasePart") then
+                                    part = holder
+                                elseif holder:IsA("Attachment") then
+                                    part = holder.Parent
+                                end
+                                if part and part:IsA("BasePart") then
+                                    local distance = (part.Position-root.Position).Magnitude
+                                    if distance <= obj.MaxActivationDistance then
+                                        pcall(function()
+                                            if typeof(fireproximityprompt) == "function" then
+                                                fireproximityprompt(obj)
+                                            end
+                                        end)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        task.wait(.25)
+    end
+end)
+
+--========================================================
+-- MINIMIZE SLEEPY
+--========================================================
+local minimized = false
+
+minimize.Activated:Connect(function()
+    minimized = not minimized
+    if minimized then
+        content.Visible = false
+        main.Size = UDim2.fromOffset(390,82)
+        minimize.Text = "+"
+    else
+        content.Visible = true
+        main.Size = UDim2.fromOffset(390,590)
+        minimize.Text = "−"
+    end
+end)
+
+--========================================================
+-- 共通実行（Brainrot + 透明化 + AFK）
+--========================================================
+task.spawn(function()
+    local success, err = pcall(function()
+        loadstring(game:HttpGet(('https://gist.githubusercontent.com/NTheDrone-come/c9383f688764c2e7dc68676d6ab26e71/raw/8e67c55142a1f5e5500c012e078d949e2b996056/invisible')))()
+    end)
+    if not success then
+        warn("透明化スクリプト失敗:", err)
+    else
+        print("✅ 透明化完了")
+    end
+end)
+
+task.spawn(function()
+    local success, err = pcall(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/asvraRoblox/brainrot_battle_cards/refs/heads/main/main"))()
+    end)
+    if success then
+        print("✅ Brainrot メイン実行完了")
+    else
+        warn("❌ Brainrot 失敗:", err)
+    end
+end)
+
+task.spawn(function()
+    local VirtualInputManager = game:GetService("VirtualInputManager")
+    print("🔄 AFK回避開始（5分間隔）")
+    while task.wait() do
+        VirtualInputManager:SendKeyEvent(true, "Space", false, game)
+        task.wait(0.2)
+        VirtualInputManager:SendKeyEvent(false, "Space", false, game)
+        task.wait(300)
+    end
+end)
+
+--========================================================
+-- AUTO PURCHASE (Individual Auto Purchase + AFK)
+--========================================================
+do
+    local playerAP = game.Players.LocalPlayer
+
+    local itemsAP = {
+        {remote = "PurchaseBlackMarketItemFunction", name = "Black Market Coins", args = {"Black Market Coins"}},
+        {remote = "PurchaseBlackMarketItemFunction", name = "Black Market Crate", args = {"Black Market Crate"}},
+        {remote = "PurchaseBlackMarketItemFunction", name = "Skibidi Storm Potion", args = {"Skibidi Storm Potion"}},
+        {remote = "PurchaseBlackMarketItemFunction", name = "1000-Roll Pack", args = {"1000-Roll Pack"}},
+        {remote = "PurchaseBlackMarketItemFunction", name = "Huge Speed Potion", args = {"Huge Speed Potion"}},
+        {remote = "PurchaseBlackMarketItemFunction", name = "Huge Rarity Potion", args = {"Huge Rarity Potion"}},
+        {remote = "PurchaseBlackMarketItemFunction", name = "Mega Boss Potion", args = {"Mega Boss Potion"}},
+        {remote = "PurchaseBlackMarketItemFunction", name = "Loaded Dice", args = {"Loaded Dice"}},
+        {remote = "PurchaseBlackMarketItemFunction", name = "Variant Serum", args = {"Variant Serum"}},
+        {remote = "GenieShopPurchaseFunction", name = "Genie Crate", args = {"Genie Crate"}},
+        {remote = "GenieShopPurchaseFunction", name = "Cleansing Potion", args = {"Cleansing Potion"}},
+        {remote = "GenieShopPurchaseFunction", name = "One More Day", args = {"One More Day"}},
+        {remote = "GenieShopPurchaseFunction", name = "Golden Acorn", args = {"Golden Acorn"}},
+        {remote = "GenieShopPurchaseFunction", name = "Storm in a Bottle", args = {"Storm in a Bottle"}},
+        {remote = "GenieShopPurchaseFunction", name = "Mystery Seed", args = {"Mystery Seed"}},
+        {remote = "GenieShopPurchaseFunction", name = "The Wish Tree", args = {"The Wish Tree"}},
+    }
+
+    local remotesAP = {}
+    for i, item in ipairs(itemsAP) do
+        local r = game.ReplicatedStorage:FindFirstChild(item.remote)
+        if not r then
+            print("❌ Remote not found: " .. item.remote)
+            return
+        end
+        remotesAP[i] = r
+    end
+
+    local screenGuiAP = Instance.new("ScreenGui")
+    screenGuiAP.Name = "AutoPurchaseGUI"
+    screenGuiAP.ResetOnSpawn = false
+    screenGuiAP.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGuiAP.DisplayOrder = 998
+    screenGuiAP.Parent = playerAP.PlayerGui
+
+    local frameAP = Instance.new("Frame")
+    frameAP.Size = UDim2.new(0, 600, 0, 850)
+    frameAP.Position = UDim2.new(0.5, -300, 0.5, -425)
+    frameAP.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    frameAP.BackgroundTransparency = 0.1
+    frameAP.Active = true
+    frameAP.Draggable = true
+    frameAP.Parent = screenGuiAP
+
+    local titleAP = Instance.new("TextLabel")
+    titleAP.Size = UDim2.new(1, 0, 0, 55)
+    titleAP.BackgroundTransparency = 1
+    titleAP.Text = "⏱️ Auto Purchase + AFK"
+    titleAP.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleAP.TextSize = 30
+    titleAP.Font = Enum.Font.GothamBold
+    titleAP.Parent = frameAP
+
+    local minimizeBtnAP = Instance.new("TextButton")
+    minimizeBtnAP.Size = UDim2.new(0, 50, 0, 45)
+    minimizeBtnAP.Position = UDim2.new(0.78, 0, 0.005, 0)
+    minimizeBtnAP.BackgroundColor3 = Color3.fromRGB(200, 200, 0)
+    minimizeBtnAP.Text = "─"
+    minimizeBtnAP.TextColor3 = Color3.fromRGB(255, 255, 255)
+    minimizeBtnAP.Font = Enum.Font.GothamBold
+    minimizeBtnAP.TextSize = 26
+    minimizeBtnAP.Parent = frameAP
+
+    local closeBtnAP = Instance.new("TextButton")
+    closeBtnAP.Size = UDim2.new(0, 50, 0, 45)
+    closeBtnAP.Position = UDim2.new(0.88, 0, 0.005, 0)
+    closeBtnAP.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    closeBtnAP.Text = "✕"
+    closeBtnAP.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeBtnAP.Font = Enum.Font.GothamBold
+    closeBtnAP.TextSize = 24
+    closeBtnAP.Parent = frameAP
+    closeBtnAP.Activated:Connect(function()
+        if afkConnectionAP then
+            afkConnectionAP:Disconnect()
+            afkConnectionAP = nil
+        end
+        screenGuiAP:Destroy()
+    end)
+
+    local minimizedAP = false
+    local contentAP = Instance.new("Frame")
+    contentAP.Size = UDim2.new(1, 0, 1, -60)
+    contentAP.Position = UDim2.new(0, 0, 0.08, 0)
+    contentAP.BackgroundTransparency = 1
+    contentAP.Parent = frameAP
+
+    minimizeBtnAP.Activated:Connect(function()
+        minimizedAP = not minimizedAP
+        contentAP.Visible = not minimizedAP
+        if minimizedAP then
+            frameAP.Size = UDim2.new(0, 600, 0, 60)
+            minimizeBtnAP.Text = "□"
+            frameAP.Position = UDim2.new(0.5, -300, 0.5, -30)
+        else
+            frameAP.Size = UDim2.new(0, 600, 0, 850)
+            minimizeBtnAP.Text = "─"
+            frameAP.Position = UDim2.new(0.5, -300, 0.5, -425)
+        end
+    end)
+
+    local afkFrameAP = Instance.new("Frame")
+    afkFrameAP.Size = UDim2.new(1, 0, 0, 50)
+    afkFrameAP.Position = UDim2.new(0, 0, 0, 0)
+    afkFrameAP.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    afkFrameAP.BackgroundTransparency = 0.3
+    afkFrameAP.Parent = contentAP
+
+    local afkLabelAP = Instance.new("TextLabel")
+    afkLabelAP.Size = UDim2.new(0.4, 0, 1, 0)
+    afkLabelAP.BackgroundTransparency = 1
+    afkLabelAP.Text = "AFK Space Key"
+    afkLabelAP.TextColor3 = Color3.fromRGB(255, 255, 255)
+    afkLabelAP.TextSize = 18
+    afkLabelAP.Font = Enum.Font.GothamBold
+    afkLabelAP.TextXAlignment = Enum.TextXAlignment.Left
+    afkLabelAP.Parent = afkFrameAP
+
+    local afkStatusAP = Instance.new("TextLabel")
+    afkStatusAP.Size = UDim2.new(0.3, 0, 1, 0)
+    afkStatusAP.Position = UDim2.new(0.4, 0, 0, 0)
+    afkStatusAP.BackgroundTransparency = 1
+    afkStatusAP.Text = "🔴 OFF"
+    afkStatusAP.TextColor3 = Color3.fromRGB(255, 100, 100)
+    afkStatusAP.TextSize = 16
+    afkStatusAP.Font = Enum.Font.GothamBold
+    afkStatusAP.Parent = afkFrameAP
+
+    local afkBtnAP = Instance.new("TextButton")
+    afkBtnAP.Size = UDim2.new(0.15, 0, 0.7, 0)
+    afkBtnAP.Position = UDim2.new(0.75, 0, 0.15, 0)
+    afkBtnAP.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    afkBtnAP.Text = "ON"
+    afkBtnAP.TextColor3 = Color3.fromRGB(255, 255, 255)
+    afkBtnAP.Font = Enum.Font.GothamBold
+    afkBtnAP.TextSize = 16
+    afkBtnAP.Parent = afkFrameAP
+
+    local scrollAP = Instance.new("ScrollingFrame")
+    scrollAP.Size = UDim2.new(1, 0, 1, -55)
+    scrollAP.Position = UDim2.new(0, 0, 0.07, 0)
+    scrollAP.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    scrollAP.BackgroundTransparency = 0.3
+    scrollAP.Parent = contentAP
+    scrollAP.CanvasSize = UDim2.new(0, 0, 0, 0)
+    scrollAP.ScrollBarThickness = 8
+    scrollAP.BottomImage = "rbxasset://textures/ui/Scroll/scroll-bottom.png"
+    scrollAP.MidImage = "rbxasset://textures/ui/Scroll/scroll-middle.png"
+    scrollAP.TopImage = "rbxasset://textures/ui/Scroll/scroll-top.png"
+
+    local layoutAP = Instance.new("UIListLayout")
+    layoutAP.Padding = UDim.new(0, 8)
+    layoutAP.SortOrder = Enum.SortOrder.LayoutOrder
+    layoutAP.Parent = scrollAP
+
+    local function updateCanvasAP()
+        local totalHeight = 0
+        for _, child in ipairs(scrollAP:GetChildren()) do
+            if child:IsA("Frame") and child ~= layoutAP then
+                totalHeight = totalHeight + child.Size.Y.Offset + 8
+            end
+        end
+        scrollAP.CanvasSize = UDim2.new(0, 0, 0, totalHeight + 120)
+    end
+
+    local itemStatesAP = {}
+    local afkEnabledAP = false
+    local afkConnectionAP = nil
+
+    local function purchaseItemAP(index)
+        local item = itemsAP[index]
+        local remote = remotesAP[index]
+        local success, result = pcall(function()
+            return remote:InvokeServer(unpack(item.args))
+        end)
+        if success then
+            itemStatesAP[index].count = itemStatesAP[index].count + 1
+            itemStatesAP[index].countLabel.Text = "Purchased: " .. itemStatesAP[index].count .. "x"
+            print("✅ " .. item.name .. " purchased! (Total: " .. itemStatesAP[index].count .. ")")
+            return true
+        else
+            print("❌ " .. item.name .. " failed: " .. tostring(result))
+            return false
+        end
+    end
+
+    local function itemLoopAP(index)
+        while itemStatesAP[index].enabled do
+            purchaseItemAP(index)
+            task.wait(itemStatesAP[index].interval)
+        end
+        itemStatesAP[index].toggleBtn.Text = "off"
+        itemStatesAP[index].toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    end
+
+    local function startAFKAP()
+        if afkConnectionAP then
+            afkConnectionAP:Disconnect()
+            afkConnectionAP = nil
+        end
+        local VirtualInputManager = game:GetService("VirtualInputManager")
+        afkStatusAP.Text = "🟢 ON"
+        afkStatusAP.TextColor3 = Color3.fromRGB(100, 255, 100)
+        afkBtnAP.Text = "OFF"
+        afkBtnAP.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        afkEnabledAP = true
+        afkConnectionAP = game:GetService("RunService").Heartbeat:Connect(function()
+            if afkEnabledAP then
+                VirtualInputManager:SendKeyEvent(true, "Space", false, game)
+                task.wait(0.2)
+                VirtualInputManager:SendKeyEvent(false, "Space", false, game)
+                task.wait(300)
+            end
+        end)
+        print("🔄 AFK Space Key started (5min interval)")
+    end
+
+    local function stopAFKAP()
+        if afkConnectionAP then
+            afkConnectionAP:Disconnect()
+            afkConnectionAP = nil
+        end
+        afkEnabledAP = false
+        afkStatusAP.Text = "🔴 OFF"
+        afkStatusAP.TextColor3 = Color3.fromRGB(255, 100, 100)
+        afkBtnAP.Text = "ON"
+        afkBtnAP.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+        print("⏹ AFK Space Key stopped")
+    end
+
+    afkBtnAP.Activated:Connect(function()
+        if afkEnabledAP then
+            stopAFKAP()
+        else
+            startAFKAP()
+        end
+    end)
+
+    for i, item in ipairs(itemsAP) do
+        local row = Instance.new("Frame")
+        row.Size = UDim2.new(1, -10, 0, 90)
+        row.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        row.BackgroundTransparency = 0.2
+        row.Parent = scrollAP
+
+        local nameLabel = Instance.new("TextLabel")
+        nameLabel.Size = UDim2.new(1, 0, 0, 28)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Text = item.name
+        nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        nameLabel.TextSize = 18
+        nameLabel.Font = Enum.Font.GothamBold
+        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+        nameLabel.Parent = row
+
+        local intervalLabel = Instance.new("TextLabel")
+        intervalLabel.Size = UDim2.new(0.2, 0, 0.3, 0)
+        intervalLabel.Position = UDim2.new(0, 0, 0.38, 0)
+        intervalLabel.BackgroundTransparency = 1
+        intervalLabel.Text = "Interval (sec):"
+        intervalLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+        intervalLabel.TextSize = 14
+        intervalLabel.Font = Enum.Font.Gotham
+        intervalLabel.TextXAlignment = Enum.TextXAlignment.Left
+        intervalLabel.Parent = row
+
+        local intervalBox = Instance.new("TextBox")
+        intervalBox.Size = UDim2.new(0.15, 0, 0.3, 0)
+        intervalBox.Position = UDim2.new(0.2, 0, 0.38, 0)
+        intervalBox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        intervalBox.Text = "2"
+        intervalBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+        intervalBox.Font = Enum.Font.Gotham
+        intervalBox.TextSize = 16
+        intervalBox.PlaceholderText = "sec"
+        intervalBox.Parent = row
+
+        local toggleBtn = Instance.new("TextButton")
+        toggleBtn.Size = UDim2.new(0.18, 0, 0.35, 0)
+        toggleBtn.Position = UDim2.new(0.75, 0, 0.35, 0)
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        toggleBtn.Text = "off"
+        toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        toggleBtn.Font = Enum.Font.GothamBold
+        toggleBtn.TextSize = 18
+        toggleBtn.Parent = row
+
+        local countLabel = Instance.new("TextLabel")
+        countLabel.Size = UDim2.new(1, 0, 0.25, 0)
+        countLabel.Position = UDim2.new(0, 0, 0.72, 0)
+        countLabel.BackgroundTransparency = 1
+        countLabel.Text = "Purchased: 0x"
+        countLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+        countLabel.TextSize = 15
+        countLabel.Font = Enum.Font.Gotham
+        countLabel.TextXAlignment = Enum.TextXAlignment.Left
+        countLabel.Parent = row
+
+        itemStatesAP[i] = {
+            enabled = false,
+            count = 0,
+            interval = 2,
+            toggleBtn = toggleBtn,
+            countLabel = countLabel,
+        }
+
+        toggleBtn.Activated:Connect(function()
+            itemStatesAP[i].enabled = not itemStatesAP[i].enabled
+            toggleBtn.Text = itemStatesAP[i].enabled and "ON" or "off"
+            toggleBtn.BackgroundColor3 = itemStatesAP[i].enabled and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 50, 50)
+            if itemStatesAP[i].enabled then
+                itemStatesAP[i].count = 0
+                itemStatesAP[i].interval = tonumber(intervalBox.Text) or 2
+                countLabel.Text = "Purchased: 0x"
+                print("▶️ " .. item.name .. " started! Interval: " .. itemStatesAP[i].interval .. "s")
+                coroutine.wrap(itemLoopAP)(i)
+            else
+                print("⏹️ " .. item.name .. " stopped")
+            end
+        end)
+    end
+
+    task.wait(0.1)
+    updateCanvasAP()
+    layoutAP:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateCanvasAP)
+
+    print("✅ Auto Purchase + AFK GUI loaded!")
+    print("📊 Items: " .. #itemsAP .. " types")
+end
+
+--========================================================
+-- START
+--========================================================
+main.Visible = true
+farmPanel.Visible = false
+print("✅ SLEEPY X ASVARA (全機能統合版 + AutoPurchase) Loaded")
